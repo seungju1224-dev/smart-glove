@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 장갑 음성 터미널</title>
+    <style>
+        :root {
+            --primary: #1565c0;
+            --primary-dark: #0d47a1;
+            --success: #087f5b;
+            --warning: #b45309;
+            --danger: #c62828;
+            --ink: #1f2937;
+            --muted: #64748b;
+            --paper: #ffffff;
+            --background: #f1f5f9;
+            --border: #dbe4ee;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Malgun Gothic", "Noto Sans KR", Arial, sans-serif;
+            color: var(--ink);
+            background: var(--background);
+        }
+
+        main {
+            width: min(720px, 100%);
+            margin: 0 auto;
+            padding: 24px 16px 44px;
+        }
+
+        header {
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            color: #102a43;
+            font-size: clamp(26px, 7vw, 34px);
+        }
+
+        h2 {
+            margin: 0 0 14px;
+            font-size: 19px;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .card {
+            margin-top: 14px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--paper);
+            box-shadow: 0 2px 14px rgba(15, 23, 42, 0.05);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        button,
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 46px;
+            padding: 11px 16px;
+            border: 0;
+            border-radius: 10px;
+            color: #fff;
+            background: var(--primary);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button:hover,
+        .file-label:hover {
+            background: var(--primary-dark);
+        }
+
+        button.secondary,
+        .file-label.secondary {
+            border: 1px solid #bfd3e7;
+            color: var(--primary-dark);
+            background: #eff6ff;
+        }
+
+        button.secondary:hover,
+        .file-label.secondary:hover {
+            background: #dbeafe;
+        }
+
+        button.danger {
+            border: 1px solid #fecaca;
+            color: var(--danger);
+            background: #fef2f2;
+        }
+
+        button.danger:hover {
+            background: #fee2e2;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status {
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: #475569;
+            background: #f8fafc;
+            line-height: 1.5;
+        }
+
+        #status.connected {
+            color: var(--success);
+            background: #ecfdf5;
+        }
+
+        #status.error {
+            color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .reading {
+            display: grid;
+            gap: 14px;
+        }
+
+        .caption {
+            margin-bottom: 6px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        #uniqueId {
+            overflow-wrap: anywhere;
+            color: #334155;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 18px;
+        }
+
+        #output {
+            min-height: 56px;
+            color: #d81b60;
+            font-size: clamp(24px, 7vw, 30px);
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        #registration {
+            border-left: 4px solid #f59e0b;
+            background: #fffbeb;
+        }
+
+        #registration[hidden] {
+            display: none;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 7px;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 9px;
+            font-size: 16px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .mapping-table {
+            width: 100%;
+            margin-top: 12px;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .mapping-table th,
+        .mapping-table td {
+            padding: 10px 6px;
+            border-bottom: 1px solid #edf2f7;
+            text-align: left;
+        }
+
+        .mapping-table td:first-child {
+            font-family: Consolas, "Courier New", monospace;
+            overflow-wrap: anywhere;
+        }
+
+        .empty {
+            padding: 8px 0;
+            color: var(--muted);
+        }
+
+        .test-note {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 500px) {
+            .input-row {
+                flex-direction: column;
+            }
+
+            button,
+            .file-label {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>스마트 장갑 음성 터미널</h1>
+            <p>장갑은 고유번호만 전송합니다. 제품명 등록, 음성 안내, 등록 여부에 따른 진동 판단은 이 웹 페이지에서 처리합니다.</p>
+        </header>
+
+        <section class="card" aria-label="블루투스 연결">
+            <div class="actions">
+                <button id="connectBtn" type="button">블루투스 장갑 연결</button>
+                <button id="disconnectBtn" class="secondary" type="button" disabled>연결 끊기</button>
+            </div>
+            <div id="status" role="status" aria-live="polite">상태: 연결 대기 중입니다.</div>
+        </section>
+
+        <section class="card reading" aria-label="인식 결과">
+            <div>
+                <div class="caption">수신한 고유번호</div>
+                <div id="uniqueId">아직 수신되지 않았습니다.</div>
+            </div>
+            <div>
+                <div class="caption">인식 결과</div>
+                <div id="output" aria-live="polite">장갑을 연결한 뒤 태그를 인식하세요.</div>
+            </div>
+        </section>
+
+        <section id="registration" class="card" hidden>
+            <h2>새 제품 등록</h2>
+            <p><strong id="pendingId"></strong> 는 아직 등록되지 않았습니다. 이 고유번호에 처음 사용할 제품명을 지정하세요.</p>
+            <form id="registrationForm" autocomplete="off">
+                <label for="productName">제품명</label>
+                <div class="input-row">
+                    <input id="productName" name="productName" type="text" maxlength="40" placeholder="예: 생수병" required>
+                    <button type="submit">등록하기</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card" aria-label="등록 목록">
+            <h2>등록된 제품명</h2>
+            <div class="actions">
+                <button id="exportBtn" class="secondary" type="button">등록 정보 내보내기</button>
+                <label class="file-label secondary" for="importFile">등록 정보 가져오기</label>
+                <input id="importFile" type="file" accept="application/json,.json">
+                <button id="clearBtn" class="danger" type="button">전체 등록 초기화</button>
+            </div>
+            <p>기존 고유번호의 이름은 덮어쓰지 않습니다. 등록된 태그는 짧게, 미등록 태그는 길게 진동합니다. 다른 휴대폰으로 옮길 때 내보내기와 가져오기를 이용하세요.</p>
+            <div id="mappingList"></div>
+        </section>
+
+        <section class="card" aria-label="시험 입력">
+            <h2>BLE 연결 전 기능 시험</h2>
+            <p class="test-note">실제 장갑 없이도 등록과 음성 흐름을 확인할 수 있습니다. 이 입력은 ESP32로 전송되지 않습니다.</p>
+            <div class="input-row">
+                <input id="testId" type="text" maxlength="20" placeholder="예: 04A1B2C3">
+                <button id="testBtn" class="secondary" type="button">고유번호 시험</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        // ESP32 스케치와 반드시 같은 UUID를 사용해야 합니다.
+        const BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const BLE_COMMAND_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const BLE_NOTIFY_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+        const DEVICE_NAME_PREFIX = "SmartGlove";
+        const STORAGE_KEY = "smartGlove.productMappings.v1";
+        const MAX_ID_LENGTH = 20;
+        const REPEAT_SPEECH_DELAY_MS = 2500;
+
+        const connectBtn = document.getElementById("connectBtn");
+        const disconnectBtn = document.getElementById("disconnectBtn");
+        const statusDiv = document.getElementById("status");
+        const uniqueIdDiv = document.getElementById("uniqueId");
+        const outputDiv = document.getElementById("output");
+        const registrationSection = document.getElementById("registration");
+        const registrationForm = document.getElementById("registrationForm");
+        const pendingIdSpan = document.getElementById("pendingId");
+        const productNameInput = document.getElementById("productName");
+        const mappingList = document.getElementById("mappingList");
+        const exportBtn = document.getElementById("exportBtn");
+        const importFile = document.getElementById("importFile");
+        const clearBtn = document.getElementById("clearBtn");
+        const testIdInput = document.getElementById("testId");
+        const testBtn = document.getElementById("testBtn");
+
+        let mappings = loadMappings();
+        let pendingUniqueId = "";
+        let pendingFromBluetooth = false;
+        let bleDevice = null;
+        let notifyCharacteristic = null;
+        let commandCharacteristic = null;
+        let lastSpokenId = "";
+        let lastSpokenAt = 0;
+
+        function loadMappings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+                if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+                    return {};
+                }
+
+                const normalizedMappings = {};
+                Object.entries(saved).forEach(([rawId, rawName]) => {
+                    const id = normalizeUniqueId(rawId);
+                    const name = cleanProductName(rawName);
+                    if (id && name && !normalizedMappings[id]) {
+                        normalizedMappings[id] = name;
+                    }
+                });
+                return normalizedMappings;
+            } catch (error) {
+                console.warn("등록 정보를 읽지 못했습니다.", error);
+                return {};
+            }
+        }
+
+        function saveMappings() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mappings));
+            renderMappings();
+        }
+
+        function setStatus(message, state = "") {
+            statusDiv.textContent = `상태: ${message}`;
+            statusDiv.className = state;
+        }
+
+        function normalizeUniqueId(rawId) {
+            const id = String(rawId).trim().toUpperCase().replace(/[:-]/g, "");
+            if (!id || id.length > MAX_ID_LENGTH || id.length % 2 !== 0 || !/^[0-9A-F]+$/.test(id)) {
+                return "";
+            }
+            return id;
+        }
+
+        function formatUniqueId(uniqueId) {
+            return uniqueId.match(/.{1,2}/g).join(":");
+        }
+
+        function cleanProductName(rawName) {
+            return String(rawName).replace(/\s+/g, " ").trim().slice(0, 40);
+        }
+
+        function speakText(text) {
+            if (!("speechSynthesis" in window)) {
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "ko-KR";
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function speakRecognition(uniqueId, sentence, force = false) {
+            const now = Date.now();
+            const isRapidRepeat = uniqueId === lastSpokenId && now - lastSpokenAt < REPEAT_SPEECH_DELAY_MS;
+            if (!force && isRapidRepeat) {
+                return;
+            }
+            lastSpokenId = uniqueId;
+            lastSpokenAt = now;
+            speakText(sentence);
+        }
+
+        async function sendRecognitionResult(result) {
+            if (!commandCharacteristic) {
+                return;
+            }
+
+            const value = new TextEncoder().encode(result);
+            try {
+                if (typeof commandCharacteristic.writeValueWithResponse === "function") {
+                    await commandCharacteristic.writeValueWithResponse(value);
+                } else {
+                    await commandCharacteristic.writeValue(value);
+                }
+            } catch (error) {
+                console.warn("진동 피드백 전송에 실패했습니다.", error);
+            }
+        }
+
+        function handleUniqueId(rawId, fromBluetooth = false) {
+            const uniqueId = normalizeUniqueId(rawId);
+            if (!uniqueId) {
+                outputDiv.textContent = "유효하지 않은 고유번호가 수신되었습니다.";
+                speakText("인식되지 않은 고유번호입니다");
+                if (fromBluetooth) {
+                    sendRecognitionResult("UNKNOWN");
+                }
+                return;
+            }
+
+            uniqueIdDiv.textContent = formatUniqueId(uniqueId);
+            const productName = mappings[uniqueId];
+
+            if (productName) {
+                pendingUniqueId = "";
+                pendingFromBluetooth = false;
+                registrationSection.hidden = true;
+                const sentence = `${productName} 입니다`;
+                outputDiv.textContent = productName;
+                speakRecognition(uniqueId, sentence);
+                if (fromBluetooth) {
+                    sendRecognitionResult("KNOWN");
+                }
+                return;
+            }
+
+            pendingUniqueId = uniqueId;
+            pendingFromBluetooth = fromBluetooth;
+            pendingIdSpan.textContent = formatUniqueId(uniqueId);
+            registrationSection.hidden = false;
+            outputDiv.textContent = "등록되지 않은 고유번호";
+            speakRecognition(uniqueId, "인식되지 않은 고유번호입니다");
+            if (fromBluetooth) {
+                sendRecognitionResult("UNKNOWN");
+            }
+        }
+
+        function renderMappings() {
+            const entries = Object.entries(mappings).sort(([first], [second]) => first.localeCompare(second));
+            exportBtn.disabled = entries.length === 0;
+            clearBtn.disabled = entries.length === 0;
+
+            if (entries.length === 0) {
+                mappingList.innerHTML = '<div class="empty">등록된 제품이 없습니다.</div>';
+                return;
+            }
+
+            const table = document.createElement("table");
+            table.className = "mapping-table";
+            table.innerHTML = "<thead><tr><th>고유번호</th><th>제품명</th></tr></thead>";
+            const tbody = document.createElement("tbody");
+            entries.forEach(([id, name]) => {
+                const row = document.createElement("tr");
+                const idCell = document.createElement("td");
+                const nameCell = document.createElement("td");
+                idCell.textContent = formatUniqueId(id);
+                nameCell.textContent = name;
+                row.append(idCell, nameCell);
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            mappingList.replaceChildren(table);
+        }
+
+        async function connectBluetooth() {
+            if (!window.isSecureContext) {
+                setStatus("BLE 연결은 HTTPS 또는 localhost 주소에서 열어야 합니다.", "error");
+                return;
+            }
+            if (!navigator.bluetooth) {
+                setStatus("이 브라우저는 Web Bluetooth를 지원하지 않습니다. Android Chrome 또는 Windows Chrome/Edge를 사용하세요.", "error");
+                return;
+            }
+
+            try {
+                setStatus("장갑을 찾는 중입니다...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { namePrefix: DEVICE_NAME_PREFIX },
+                        { services: [BLE_SERVICE_UUID] }
+                    ],
+                    optionalServices: [BLE_SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
+                setStatus("장갑에 연결하는 중입니다...");
+
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+                commandCharacteristic = await service.getCharacteristic(BLE_COMMAND_CHAR_UUID);
+                notifyCharacteristic = await service.getCharacteristic(BLE_NOTIFY_CHAR_UUID);
+                await notifyCharacteristic.startNotifications();
+                notifyCharacteristic.addEventListener("characteristicvaluechanged", onNotification);
+
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                setStatus("장갑이 연결되었습니다. 태그를 인식하세요.", "connected");
+            } catch (error) {
+                console.error("블루투스 연결 오류:", error);
+                setStatus("연결이 취소되었거나 실패했습니다.", "error");
+            }
+        }
+
+        function disconnectBluetooth() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+            }
+            onDisconnected();
+        }
+
+        function onDisconnected() {
+            if (notifyCharacteristic) {
+                notifyCharacteristic.removeEventListener("characteristicvaluechanged", onNotification);
+                notifyCharacteristic = null;
+            }
+            commandCharacteristic = null;
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            setStatus("연결이 끊겼습니다. 다시 연결 버튼을 누르세요.", "error");
+        }
+
+        function onNotification(event) {
+            const decoder = new TextDecoder("utf-8");
+            const receivedId = decoder.decode(event.target.value);
+            handleUniqueId(receivedId, true);
+        }
+
+        registrationForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const productName = cleanProductName(productNameInput.value);
+            if (!pendingUniqueId || !productName || mappings[pendingUniqueId]) {
+                return;
+            }
+
+            mappings[pendingUniqueId] = productName;
+            saveMappings();
+            registrationSection.hidden = true;
+            outputDiv.textContent = productName;
+            speakRecognition(pendingUniqueId, `${productName} 입니다`, true);
+            if (pendingFromBluetooth) {
+                sendRecognitionResult("KNOWN");
+            }
+            pendingUniqueId = "";
+            pendingFromBluetooth = false;
+            productNameInput.value = "";
+        });
+
+        exportBtn.addEventListener("click", () => {
+            const blob = new Blob([JSON.stringify(mappings, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "smart-glove-product-mappings.json";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+
+        importFile.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            try {
+                const imported = JSON.parse(await file.text());
+                let addedCount = 0;
+                Object.entries(imported).forEach(([rawId, rawName]) => {
+                    const id = normalizeUniqueId(rawId);
+                    const name = cleanProductName(rawName);
+                    if (id && name && !mappings[id]) {
+                        mappings[id] = name;
+                        addedCount += 1;
+                    }
+                });
+                saveMappings();
+                setStatus(`${addedCount}개의 새 등록 정보를 가져왔습니다.`);
+            } catch (error) {
+                console.error("가져오기 오류:", error);
+                setStatus("등록 정보 파일을 읽지 못했습니다.", "error");
+            } finally {
+                event.target.value = "";
+            }
+        });
+
+        clearBtn.addEventListener("click", () => {
+            if (!window.confirm("등록된 제품명을 모두 삭제할까요?")) {
+                return;
+            }
+            mappings = {};
+            saveMappings();
+            registrationSection.hidden = true;
+            pendingUniqueId = "";
+            pendingFromBluetooth = false;
+            setStatus("등록 정보를 모두 초기화했습니다.");
+        });
+
+        testBtn.addEventListener("click", () => {
+            handleUniqueId(testIdInput.value);
+            testIdInput.value = "";
+        });
+
+        testIdInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                testBtn.click();
+            }
+        });
+
+        connectBtn.addEventListener("click", connectBluetooth);
+        disconnectBtn.addEventListener("click", disconnectBluetooth);
+        renderMappings();
+    </script>
+</body>
+</html>
